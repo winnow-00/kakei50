@@ -270,7 +270,7 @@ th.stick{z-index:2}
 
 <section class="card">
   <div class="spread">
-    <div><h2>年次明細</h2><p class="sub">横にスクロールできます。固定支出＝生活費＋住居費＋予備費＋介護費。<br>収入 − 固定支出 − 教育費 − 特別支出 − 積立額 ＋ 取崩 ＝ 現金増減</p></div>
+    <div><h2>年次明細</h2><p class="sub">横にスクロールできます。固定支出＝生活費＋住居費＋予備費＋介護費。<br>収入 − 固定支出 − 教育費 − 特別支出 − 積立投資 ＋ 取崩 ＝ 現金増減</p></div>
     <button id="dense" type="button">全年を表示</button>
   </div>
   <div class="scroll"><table id="tbl"></table></div>
@@ -282,7 +282,7 @@ th.stick{z-index:2}
     <li>運用益は毎年一定率で複利計算した概算です。値動きの上下や、退職直後の暴落といった<b>順序の影響は表現していません</b>。</li>
     <li>給与・生活費・教育費・住居維持費・家賃・車・介護費はインフレ率で増やし、住宅ローンは名目据え置きとしています。年金は物価スライド率で改定幅を調整します。</li>
     <li>収入はすべて<b>手取り</b>として扱います。税・社会保険料は織り込み済みという前提です。投資の取り崩しにも課税していません（NISA・iDeCoの非課税枠を超える分は本来課税されます）。</li>
-    <li>支出が収入を上回る年は、まず積立を自動で縮小し、それでも生活防衛資金を割る場合だけ投資から取り崩します。積み立てながら同じ年に取り崩すことは起きません。</li>
+    <li>支出が収入を上回る年は、まず積立投資を自動で縮小し、それでも生活防衛資金を割る場合だけ投資から取り崩します。積み立てながら同じ年に取り崩すことは起きません。</li>
     <li><b>配偶者が先に亡くなった後は計算していません。</b>世帯の年金は下がるのに生活費は半分にならない局面で、実際には大きく効きます。</li>
     <li>将来の税制・年金制度・教育費の変更は反映していません。</li>
   </ul>
@@ -490,14 +490,14 @@ function simulate(p){
     /* --- 生活防衛資金：生活費の指定か月分 --- */
     var emergency = base * p.emergencyMonths * inf;
 
-    /* --- 積立（ブレーキつき） --- */
+    /* --- 積立投資（ブレーキつき） --- */
     var want = (age <= p.contribEndAge) ? p.contribMonthly * 12 : 0;
     var fixedOut = living + housing + reserve + care;
     var preFlow = income * frac + lumpIn
                 - (fixedOut + edu) * frac - car - lumpOut;
     var room = Math.max(0, (cash + preFlow) - emergency) / frac;
     var contribAnnual = Math.min(want, room);
-    if(contribAnnual < want - 0.01 && want > 0) ev.push("積立を縮小");
+    if(contribAnnual < want - 0.01 && want > 0) ev.push("積立投資を縮小");
     var contrib = contribAnnual * frac;
 
     /* --- 運用 --- */
@@ -673,7 +673,7 @@ function drawBars(rows){
       + "　支出 " + fmt(r.fixed + r.edu + r.special)
       + "　<span style='color:" + (r.net >= 0 ? "var(--ok)" : "var(--bad)") + "'>収支 "
       + (r.net > 0 ? "+" : "") + fmt(r.net) + "</span>"
-      + (r.contrib > 0 ? "　積立 " + fmt(r.contrib) : "")
+      + (r.contrib > 0 ? "　積立投資 " + fmt(r.contrib) : "")
       + (r.withdraw > 0 ? "　取崩 " + fmt(r.withdraw) : "");
   }
   function scrub(ev){
@@ -697,7 +697,7 @@ function drawTable(rows){
     return i < 12 || r.year % 5 === 0 || keyYears[r.year];
   }) : rows;
   var h = '<thead><tr><th class="l stick">年</th><th class="l">年齢</th><th class="l">出来事</th>'
-    + '<th>収入</th><th>固定支出</th><th>教育費</th><th>特別支出</th><th>積立額</th><th>取崩</th>'
+    + '<th>収入</th><th>固定支出</th><th>教育費</th><th>特別支出</th><th>積立投資</th><th>取崩</th>'
     + '<th>現金増減</th><th>現金残高</th><th>運用益</th><th>投資評価額</th><th>総資産</th></tr></thead><tbody>';
   show.forEach(function(r){
     var hot = /退職|年金開始|完済/.test(r.note) ? ' class="hi"' : '';
@@ -791,8 +791,8 @@ var CORE = [
   ["selfReemployEndAge","再雇用の最終年齢","歳",1,18,100,0],
   ["selfPension","あなたの年金（年額）","万",5,0,9999,0],
   ["selfPensionAge","年金の受給開始","歳",1,60,75,0],
-  ["contribMonthly","毎月の積立額","万/月",1,0,999,0],
-  ["contribEndAge","積立の最終年齢","歳",1,18,100,0]
+  ["contribMonthly","毎月の積立投資額","万/月",1,0,999,0],
+  ["contribEndAge","積立投資の最終年齢","歳",1,18,100,0]
 ];
 var PARTNER = [
   ["partnerAge","配偶者の年齢","歳",1,18,100,0],
