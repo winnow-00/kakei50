@@ -142,7 +142,8 @@ details.std>summary{min-height:44px}
 .empty .head{font-family:var(--serif);font-size:17px;font-weight:600;line-height:1.5}
 .empty .sub{font-size:12px;color:var(--ink-2);line-height:1.8}
 .empty b{color:var(--ink)}
-#result[hidden]{display:none}
+/* display を持つ要素は [hidden] の display:none を打ち消してしまうので、明示的に戻す */
+[hidden]{display:none!important}
 /* 未入力の欄は控えめに縁取って、埋める場所だと分かるようにする */
 input.need{border-color:var(--prin);background:var(--surface)}
 input::placeholder{color:var(--ink-3);opacity:1;font-family:var(--sans);font-size:13px}
@@ -212,6 +213,7 @@ th.stick{z-index:2}
   <div class="hd"><h2>あなたの前提</h2><p class="sub">ここだけ埋めれば動きます。入力はこのブラウザにだけ保存され、外には出ません。</p></div>
   <div class="panel">
     <div class="grid" id="core"></div>
+    <p class="src" id="brakeNote"></p>
     <div id="housing"></div>
     <div style="display:flex;flex-direction:column;gap:9px">
       <div class="bar" style="justify-content:space-between">
@@ -954,12 +956,40 @@ function render(){
   var ready = isReady(P);
   document.getElementById("empty").hidden = ready;
   document.getElementById("result").hidden = !ready;
+
+  /* 積立投資が自動で絞られる仕組みを、実際の金額つきで説明する。
+     黙って減らすと「入れたはずの額と違う」と受け取られるため。 */
+  var base = (P.selfAge !== null && P.selfAge >= 60)
+    ? (P.hasPartner ? P.livingCoupleOld : P.livingSingleOld)
+    : (P.hasPartner ? P.livingCouple    : P.livingSingle);
+  var eme = Math.round(base * P.emergencyMonths);
+  var bn = document.getElementById("brakeNote");
+
   if(ready){
     var out = simulate(P);
     drawStats(out);
     drawArea(out.rows);
     drawBars(out.rows);
     drawTable(out.rows);
+
+    var cut = out.rows.filter(function(r){ return /積立投資を縮小/.test(r.note); });
+    var msg = "毎月の積立投資額は、その年の現金が<b>生活防衛資金（生活費"
+      + P.emergencyMonths + "か月分＝約 <span class='num'>" + fmt(eme)
+      + "</span>万円）</b>を割りそうなときだけ、自動で減らします。"
+      + "積み立てながら同じ年に取り崩す、という無駄が起きないようにするためです。";
+    if(cut.length){
+      msg += "<br><b style='color:var(--cash)'>この前提では " + cut[0].year + "年（" + cut[0].age + "歳）から"
+        + cut.length + "年ぶん、積立投資が自動で減っています。</b>"
+        + "減った年は明細の「出来事」欄に <b>積立投資を縮小</b> と出ます。"
+        + "満額を積みたい場合は、生活防衛資金の月数を下げるか、支出を見直してください。";
+    } else {
+      msg += "<br>この前提では、<b>全期間で入力どおりの額を積めています。</b>";
+    }
+    bn.innerHTML = msg;
+  } else {
+    bn.innerHTML = "毎月の積立投資額は、その年の現金が生活防衛資金（生活費"
+      + P.emergencyMonths + "か月分）を割りそうなときだけ、自動で減らします。"
+      + "積み立てながら同じ年に取り崩す、という無駄が起きないようにするためです。";
   }
   var rr = document.getElementById("realRet");
   if(rr){
