@@ -136,6 +136,17 @@ details.std>summary{min-height:44px}
 .spread{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
   padding:15px 16px 11px;flex-wrap:wrap}
 
+/* まだ入力が済んでいないときの案内 */
+.empty{background:var(--surface);border:1px dashed var(--rule);border-radius:4px;
+  padding:26px 18px;text-align:center;display:flex;flex-direction:column;gap:8px}
+.empty .head{font-family:var(--serif);font-size:17px;font-weight:600;line-height:1.5}
+.empty .sub{font-size:12px;color:var(--ink-2);line-height:1.8}
+.empty b{color:var(--ink)}
+#result[hidden]{display:none}
+/* 未入力の欄は控えめに縁取って、埋める場所だと分かるようにする */
+input.need{border-color:var(--prin);background:var(--surface)}
+input::placeholder{color:var(--ink-3);opacity:1;font-family:var(--sans);font-size:13px}
+
 /* readouts + charts */
 .readout{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:11px;
   color:var(--ink-2);padding:8px 16px 4px;min-height:38px;line-height:1.65}
@@ -197,9 +208,6 @@ th.stick{z-index:2}
   <p class="lede">いまの年齢・収入・支出から、生涯の資産を年ごとに追います。触らなくても動くよう、教育費や年金の改定率には公的統計にもとづく<b>標準値</b>を入れてあります。金額はすべて万円。</p>
 </header>
 
-<div class="verdict" id="verdict"></div>
-<div class="stats" id="stats"></div>
-
 <section class="card">
   <div class="hd"><h2>あなたの前提</h2><p class="sub">ここだけ埋めれば動きます。入力はこのブラウザにだけ保存され、外には出ません。</p></div>
   <div class="panel">
@@ -247,6 +255,17 @@ th.stick{z-index:2}
   </div>
 </details>
 
+<!-- ここから下が試算結果。入力が済むまでは #empty だけを出す -->
+<div id="empty" class="empty">
+  <p class="head">上の欄に<b>年齢</b>と<b>手取り年収</b>を入れてください</p>
+  <p class="sub">この2つが入ると、ここから下に50年分の試算が出ます。<br>
+  教育費・生活費・年金・介護費には公的統計にもとづく標準値が入っているので、細かい数字を調べる必要はありません。</p>
+</div>
+
+<div id="result" hidden>
+<div class="verdict" id="verdict"></div>
+<div class="stats" id="stats"></div>
+
 <section class="card">
   <div class="hd"><h2>資産の三層</h2><p class="sub">現金・投資元本・運用益の積み上げ。グラフをなぞるとその年の内訳が出ます。</p></div>
   <div class="readout" id="ro1">&nbsp;</div>
@@ -275,6 +294,7 @@ th.stick{z-index:2}
   </div>
   <div class="scroll"><table id="tbl"></table></div>
 </section>
+</div><!-- /#result -->
 
 <section class="card fine">
   <p><b>この試算の読み方</b></p>
@@ -337,28 +357,34 @@ var PATH = {
   allPri:{label:"すべて私立",   k:"pri", e:"pri", j:"pri", h:"pri"}
 };
 
+/* 本人に関わる数字は空（null）で始める。他人のモデルケースを最初に見せると、
+   自分のことを言われたように受け取られてしまうため。年齢と手取り年収が
+   入るまで結果は出さない（isReady を参照）。 */
 function defaults(){
   var y = new Date().getFullYear();
   var P = {
-    v:2, startYear:y, startMonth:(new Date().getMonth()+1), horizonAge:95,
-    selfAge:45, hasPartner:true, partnerAge:45,
-    cash0:500, invest0:200, principal0:180,
-    /* 手取り合計639万＝家計調査2025「二人以上の勤労者世帯」の可処分所得 月532,408円 */
-    selfIncome:450, selfWorkEndAge:60, selfReemploy:280, selfReemployEndAge:64,
-    selfPension:180, selfPensionAge:65,
-    partnerIncome:189, partnerWorkEndAge:60,
-    partnerPension:85, partnerPensionAge:65,
-    contribMonthly:6, contribEndAge:60,
-    housing:"own", loanMonthly:9, loanEndAge:65, upkeepAnnual:30,
-    rentMonthly:9, renewalMonths:1,
+    v:3, startYear:y, startMonth:(new Date().getMonth()+1), horizonAge:95,
+    selfAge:null, hasPartner:false, partnerAge:null,
+    cash0:null, invest0:null, principal0:null,
+    selfIncome:null, selfWorkEndAge:65, selfReemploy:null, selfReemployEndAge:70,
+    selfPension:200, selfPensionAge:65,
+    partnerIncome:null, partnerWorkEndAge:65,
+    partnerPension:84.7, partnerPensionAge:65,
+    contribMonthly:null, contribEndAge:65,
+    housing:"own", loanMonthly:null, loanEndAge:65, upkeepAnnual:30,
+    rentMonthly:null, renewalMonths:1,
     children:[],
     extras:[]
   };
   for (var k in STD) P[k] = STD[k];
   return P;
 }
+/* null を 0 として扱う（未入力の欄） */
+function n0(v){ return (v === null || v === undefined || isNaN(v)) ? 0 : +v; }
+/* 年齢と手取り年収の両方が入って初めて試算する */
+function isReady(p){ return p.selfAge !== null && p.selfAge >= 15 && p.selfIncome !== null; }
 
-var KEY = "kakei50.v2";
+var KEY = "kakei50.v3";   /* v2 はモデルケース入りだったので破棄 */
 var P = defaults(), dense = true;
 
 function load(){
@@ -366,7 +392,7 @@ function load(){
     var raw = localStorage.getItem(KEY);
     if(!raw) return false;
     var o = JSON.parse(raw);
-    if(!o || o.v !== 2) return false;
+    if(!o || o.v !== 3) return false;
     for(var k in P) if(o[k] !== undefined) P[k] = o[k];
     return true;
   }catch(e){ return false; }
@@ -407,7 +433,10 @@ function eduForChild(c, age, p){
 }
 
 /* ============ 計算 ============ */
-function simulate(p){
+function simulate(src){
+  /* 未入力(null)の欄は 0 として扱う。子ども・臨時はそのまま持ち回す。 */
+  var p = {children:src.children, extras:src.extras, housing:src.housing, hasPartner:src.hasPartner};
+  for(var k in src) if(!(k in p)) p[k] = (typeof src[k] === "number" || src[k] === null) ? n0(src[k]) : src[k];
   var n = Math.max(1, p.horizonAge - p.selfAge + 1);
   var months = 13 - Math.min(12, Math.max(1, p.startMonth));   /* 初年度の残り月数 */
   var cash = p.cash0, invest = p.invest0;
@@ -765,12 +794,20 @@ function drawStats(out){
 
 /* ============ 入力の組み立て ============ */
 /* [key, ラベル, 単位, きざみ, 下限, 上限, 標準値か] */
+/* 未入力(null)は空欄で描く。value="null" と出さないための分岐。 */
+var NEEDED = {selfAge:"必須", selfIncome:"必須"};
 function numField(f){
-  var val = P[f[0]];
+  var v = P[f[0]];
+  var val = (v === null || v === undefined) ? "" : v;
+  var need = NEEDED[f[0]];
   return '<label class="f"><span class="lb">' + f[1]
-    + (f[6] ? '<span class="tag">標準値</span>' : '') + '</span>'
+    + (f[6] ? '<span class="tag">標準値</span>' : '')
+    + (need ? '<span class="tag" style="color:var(--prin);border-color:var(--prin)">' + need + '</span>' : '')
+    + '</span>'
     + '<span class="row"><input type="number" step="' + f[3] + '" min="' + f[4] + '" max="' + f[5]
-    + '" data-k="' + f[0] + '" value="' + val + '"><span class="sfx">' + f[2] + '</span></span></label>';
+    + '" data-k="' + f[0] + '" value="' + val + '"'
+    + (need && val === "" ? ' class="need" placeholder="入力してください"' : '')
+    + '><span class="sfx">' + f[2] + '</span></span></label>';
 }
 function selField(key, label, opts, std){
   return '<label class="f"><span class="lb">' + label
@@ -912,11 +949,18 @@ var timer = null;
 function rerender(){ if(timer) clearTimeout(timer); timer = setTimeout(function(){ timer = null; render(); }, 130); }
 
 function render(){
-  var out = simulate(P);
-  drawStats(out);
-  drawArea(out.rows);
-  drawBars(out.rows);
-  drawTable(out.rows);
+  /* 年齢と手取り年収が入るまでは案内だけを出す。
+     初めて開いた人に、他人の数字で出した結果を見せないため。 */
+  var ready = isReady(P);
+  document.getElementById("empty").hidden = ready;
+  document.getElementById("result").hidden = !ready;
+  if(ready){
+    var out = simulate(P);
+    drawStats(out);
+    drawArea(out.rows);
+    drawBars(out.rows);
+    drawTable(out.rows);
+  }
   var rr = document.getElementById("realRet");
   if(rr){
     var v = P.ret - P.inflation;
@@ -931,9 +975,16 @@ function render(){
 function rebuildAll(){ buildCore(); buildKids(); buildExtras(); buildStd(); render(); }
 
 /* ============ 入力の処理 ============ */
-function clampWrite(t){
+/* 空欄は 0 に潰さず null のまま返す（未入力と「0と入力した」を区別するため） */
+function readNum(t){
+  if(t.value.trim() === "") return null;
   var v = parseFloat(t.value);
-  if(!isFinite(v)) v = parseFloat(t.min) || 0;
+  return isFinite(v) ? v : null;
+}
+function clampWrite(t){
+  if(t.value.trim() === "") return null;
+  var v = parseFloat(t.value);
+  if(!isFinite(v)) return null;
   if(t.min !== "" && v < +t.min) v = +t.min;
   if(t.max !== "" && v > +t.max) v = +t.max;
   if(String(v) !== t.value) t.value = v;
@@ -951,10 +1002,15 @@ function applyTarget(t, clamp){
     var e = P.extras[+t.dataset.e], g = t.dataset.ef;
     if(g === "on") e.on = t.checked;
     else if(g === "label") e.label = t.value;
-    else e[g] = clamp ? clampWrite(t) : (parseFloat(t.value) || 0);
+    else e[g] = n0(clamp ? clampWrite(t) : readNum(t));
     return true;
   }
-  if(t.dataset.k){ P[t.dataset.k] = clamp ? clampWrite(t) : (parseFloat(t.value) || 0); return true; }
+  if(t.dataset.k){
+    P[t.dataset.k] = clamp ? clampWrite(t) : readNum(t);
+    /* 入力中に組み直すとフォーカスが飛ぶので、欄の見た目だけ切り替える */
+    if(NEEDED[t.dataset.k]) t.classList.toggle("need", P[t.dataset.k] === null);
+    return true;
+  }
   if(t.dataset.s){
     var k = t.dataset.s;
     P[k] = (k === "hasPartner") ? (t.value === "true") : t.value;
@@ -1001,10 +1057,7 @@ new MutationObserver(function(){ render(); })
   .observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
 
 /* ============ 起動 ============ */
-if(!load()){
-  P.children = [newChild(10)];
-  P.extras = [{on:true, label:"退職金", year:P.startYear + (60 - P.selfAge), amt:1000}];
-}
+load();          /* 前回の入力があれば復元。無ければ空のまま */
 rebuildAll();
 document.getElementById("saved").textContent = "";
 </script>
