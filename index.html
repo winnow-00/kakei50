@@ -223,7 +223,7 @@ th.stick{z-index:2}
       <div id="kids" style="display:flex;flex-direction:column;gap:9px"></div>
     </div>
     <div class="bar" style="border-top:1px solid var(--rule-2);padding-top:12px">
-      <button id="reset" type="button">標準値に戻す</button>
+      <button id="reset" type="button">入力を消して最初に戻す</button>
       <span class="src" id="saved"></span>
     </div>
   </div>
@@ -1072,9 +1072,14 @@ document.addEventListener("click", function(ev){
   else if(t.dataset.edel !== undefined){ P.extras.splice(+t.dataset.edel, 1); buildExtras(); render(); }
   else if(t.id === "dense"){ dense = !dense; t.textContent = dense ? "全年を表示" : "要点だけ表示"; render(); }
   else if(t.id === "reset"){
+    /* 押すと入力が全部消えるので、消すものがあるときだけ確認する */
+    var hasInput = isReady(P) || P.children.length || P.extras.length
+                || P.cash0 !== null || P.invest0 !== null;
+    if(hasInput && !window.confirm("入力した内容をすべて消して、最初の状態に戻します。よろしいですか？")) return;
     P = defaults();
     try{ localStorage.removeItem(KEY); }catch(e){}
     rebuildAll();
+    document.getElementById("saved").textContent = "消しました";
   }
 });
 
