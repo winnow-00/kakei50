@@ -136,6 +136,14 @@ details.std>summary{min-height:44px}
 .spread{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
   padding:15px 16px 11px;flex-wrap:wrap}
 
+/* 切り取られても一緒に写るよう、上部と結果カードに置く注記 */
+.caveat{font-size:11.5px;line-height:1.75;color:var(--ink-2);background:var(--surface);
+  border:1px solid var(--rule);border-left:3px solid var(--cash);border-radius:4px;padding:10px 13px}
+.caveat b{color:var(--ink)}
+.verdict .fine-note{font-size:10.5px;line-height:1.6;color:var(--ink-3);
+  border-top:1px solid var(--rule);margin-top:9px;padding-top:8px}
+.verdict.bad .fine-note{border-top-color:rgba(176,52,44,.3)}
+
 /* まだ入力が済んでいないときの案内 */
 .empty{background:var(--surface);border:1px dashed var(--rule);border-radius:4px;
   padding:26px 18px;text-align:center;display:flex;flex-direction:column;gap:8px}
@@ -208,6 +216,8 @@ th.stick{z-index:2}
   <h1>家計の50年</h1>
   <p class="lede">いまの年齢・収入・支出から、生涯の資産を年ごとに追います。触らなくても動くよう、教育費や年金の改定率には公的統計にもとづく<b>標準値</b>を入れてあります。金額はすべて万円。</p>
 </header>
+
+<p class="caveat">一定の利回りとインフレ率で計算した<b>ざっくりした見通し</b>です。個別の金融アドバイスではありません。実際の判断は、ねんきん定期便などの実書類と突き合わせたうえで、専門家にご相談ください。</p>
 
 <section class="card">
   <div class="hd"><h2>あなたの前提</h2><p class="sub">ここだけ埋めれば動きます。入力はこのブラウザにだけ保存され、外には出ません。</p></div>
@@ -763,12 +773,14 @@ function drawStats(out){
     v.className = "verdict bad";
     v.innerHTML = '<p class="head">' + out.depleted + '年、' + a + '歳で資産が尽きます</p>'
       + '<p class="sub">この前提のままだと、' + a + '歳より先の生活費をまかなえません。'
-      + '利回り・年金・生活費・働く年数のどれかを見直してみてください。</p>';
+      + '利回り・年金・生活費・働く年数のどれかを見直してみてください。</p>'
+      + '<p class="fine-note">利回り ' + P.ret + '％・インフレ ' + P.inflation + '％で一定と置いた概算です。値動きの上下や、配偶者が先に亡くなった後は計算していません。</p>';
   } else {
     v.className = "verdict";
     v.innerHTML = '<p class="head">' + last.age + '歳まで資産は持ちます</p>'
       + '<p class="sub">最後に残るのは <b class="num">' + fmt(real(last.total, last.t))
-      + '万円</b>（今のお金に直した額。表示上の額面は ' + fmt(last.total) + '万円）。</p>';
+      + '万円</b>（今のお金に直した額。表示上の額面は ' + fmt(last.total) + '万円）。</p>'
+      + '<p class="fine-note">利回り ' + P.ret + '％・インフレ ' + P.inflation + '％で一定と置いた概算です。値動きの上下や、配偶者が先に亡くなった後は計算していません。</p>';
   }
 
   var items = [
