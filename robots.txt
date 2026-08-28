@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://winnow-00.github.io/kakei50/sitemap.xml
